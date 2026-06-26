@@ -68,7 +68,8 @@ def train(
     5. Every ``cfg.eval_every`` epochs, evaluate on validation with the popularity protocol
        using a ``rank_fn`` that, for each batch of histories, builds inputs with
        ``build_eval_input(h, cfg.max_len, model.mask_id)``, runs the model, takes the logits
-       at the trailing ``[mask]`` (last position), and gathers the candidate columns. Keep the
+       at the trailing ``[mask]`` (last position), and scores each candidate by indexing
+       those logits at the candidate ids (``logits[:, -1, :]`` gathered at ``candidates``). Keep the
        best checkpoint by val NDCG@10; early-stop after ``cfg.patience`` non-improving evals.
     6. Restore the best checkpoint and evaluate on test (input = train + validation item via
        ``extra_context=user_valid``). Return the dict above.

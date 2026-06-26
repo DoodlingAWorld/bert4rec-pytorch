@@ -7,9 +7,9 @@ from bert4rec.masking import ClozeMaskingDataset, build_eval_input
 
 
 def _ds(mask_prob=0.5, max_len=8, num_items=20, seed=0):
-    user_train = {
-        u: list(range(1, 6)) for u in range(1, 4)
-    }  # each user: items [1,2,3,4,5]
+    # item ids deliberately distinct from their positions (11..15) so a label check is
+    # unambiguous: a label must be the ORIGINAL item id, not a position index.
+    user_train = {u: [11, 12, 13, 14, 15] for u in range(1, 4)}
     return (
         ClozeMaskingDataset(user_train, num_items, max_len, mask_prob, seed=seed),
         num_items,
@@ -51,7 +51,7 @@ def test_full_masking():
     tokens, labels = ds[0]
     real = torch.arange(max_len) >= (max_len - 5)
     assert torch.all(tokens[real] == num_items + 1)  # every real position masked
-    assert torch.equal(labels[real], torch.tensor([1, 2, 3, 4, 5]))
+    assert torch.equal(labels[real], torch.tensor([11, 12, 13, 14, 15]))
 
 
 def test_build_eval_input_trailing_mask():

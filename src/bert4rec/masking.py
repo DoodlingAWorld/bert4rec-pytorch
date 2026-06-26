@@ -30,7 +30,10 @@ class ClozeMaskingDataset(Dataset):
     ``__getitem__`` returns two int64 tensors of shape [max_len]: ``tokens`` and ``labels``.
     Use a fresh mask each epoch (sample in ``__getitem__``, not once up front).
 
-    ``mask_id`` is ``num_items + 1``.
+    Left-padding convention: for a user with ``n`` real items, the first ``max_len - n``
+    positions are 0 (padding) and the last ``n`` positions hold the items (truncate to the
+    most recent ``max_len`` if ``n > max_len``). Only those last ``n`` positions are eligible
+    for masking. ``mask_id`` is ``num_items + 1``.
     """
 
     def __init__(
@@ -61,6 +64,8 @@ def build_eval_input(history: list[int], max_len: int, mask_id: int) -> np.ndarr
 
     Returns an int64 array of shape [max_len], left-padded with 0, whose LAST position is
     ``mask_id`` (the position whose prediction is the recommendation). Keep the most recent
-    ``max_len - 1`` history items.
+    ``max_len - 1`` history items (drop the oldest if truncation is needed), then left-pad
+    with 0 if fewer than ``max_len - 1`` remain. Example: history [1,2,3,4,5,6], max_len 4
+    -> [4, 5, 6, mask_id].
     """
     raise NotImplementedError("Implement build_eval_input (see docstring)")

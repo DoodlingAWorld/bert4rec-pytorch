@@ -43,8 +43,10 @@ def _sample_pop_negatives(
         )
     negs: list[int] = []
     seen = set(exclude)
-    # Oversample in blocks and filter; popularity is skewed so a few rounds suffice.
-    while len(negs) < n:
+    # Oversample in blocks and filter; popularity is skewed so a few rounds suffice. Cap the
+    # rounds so a pathologically skewed distribution fails loudly instead of hanging.
+    max_rounds = 1000
+    for _ in range(max_rounds):
         draws = rng.choice(len(prob), size=max(n * 2, 16), p=prob)
         for c in draws:
             c = int(c)
@@ -52,8 +54,10 @@ def _sample_pop_negatives(
                 seen.add(c)
                 negs.append(c)
                 if len(negs) == n:
-                    break
-    return negs
+                    return negs
+    raise RuntimeError(
+        f"could not sample {n} negatives in {max_rounds} rounds (popularity too skewed?)"
+    )
 
 
 def evaluate(

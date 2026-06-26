@@ -38,7 +38,13 @@ def test_padding_embedding_is_zero():
 
 def test_attention_is_bidirectional_not_causal():
     """Changing a LATER position must affect an EARLIER position's output (info flows both
-    ways). This is the opposite of SASRec's causal property."""
+    ways). This is the opposite of SASRec's causal property.
+
+    This works on a randomly-initialised model (no training needed): embedding rows are
+    independent, so swapping the last token gives position 0 a genuinely different value to
+    attend to. A correct bidirectional model always changes position 0; a causal model never
+    does (position 0 would attend only to itself). So the test discriminates the two.
+    """
     model, cfg, num_items = _model()
     L = cfg.max_len
     seq = torch.randint(1, num_items + 1, (1, L))
