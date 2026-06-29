@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import torch
+import torch.nn.functional as F
 
 
 def cloze_loss(logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
@@ -19,4 +20,5 @@ def cloze_loss(logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
     A scalar: the mean cross-entropy over the masked positions (use ``ignore_index=0`` so
     that id 0 is never a target and non-masked positions do not contribute).
     """
-    raise NotImplementedError("Implement the Cloze loss (see docstring)")
+    V = logits.size(-1)
+    return F.cross_entropy(logits.view(-1, V), labels.view(-1), ignore_index = 0)
