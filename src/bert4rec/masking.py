@@ -16,6 +16,7 @@ from __future__ import annotations
 import numpy as np
 import torch
 from torch.utils.data import Dataset
+from .data import left_pad_sequence
 
 
 class ClozeMaskingDataset(Dataset):
@@ -56,7 +57,34 @@ class ClozeMaskingDataset(Dataset):
         return len(self.users)
 
     def __getitem__(self, idx: int):
-        raise NotImplementedError("Implement Cloze masking (see class docstring)")
+        ts = self.user_train[self.users[idx]][-self.max_len:]
+        n = len(ts)
+        start = self.max_len - n # real items occupy the LAST n positions
+        tokens = np.zeros(self.max_len, dtype=np.int64)
+        labels = np.zeros(self.max_len, dtype=np.int64)
+
+        # Walk the real positions. For each, draw self.rng.random() < self.mask_prob:
+        # - masked -> tokens[pos] = self.mask_id, labels[pos] = original_item
+        # - not masked -> tokens[pos] = original_item, labels[pos] = 0 (already 0)
+
+        for j, item in enumerate(ts):
+            pos = start + j
+            if self.rng.random() < self.mask_prob:
+                tokens[pos] = self.mask_id
+                labels[pos] = item
+            else:
+                tokens[pos] = item
+
+        # Guarantee at least one mask: if nothing got masked (labels.any() is False), force-mask one random real position
+        # (This keeps every sample contributing to the loss, and is what test_masked_positions_consistent checks.)
+        if not labels.any():
+            j = int(self.rng.integers(0, n))
+            pos = start + j
+            tokens[pos] = self.mask_id
+            labels[pos] = ts[j]
+
+        return torch.from_numpy(tokens), torch.from_numpy(labels)
+
 
 
 def build_eval_input(history: list[int], max_len: int, mask_id: int) -> np.ndarray:
@@ -68,4 +96,4 @@ def build_eval_input(history: list[int], max_len: int, mask_id: int) -> np.ndarr
     with 0 if fewer than ``max_len - 1`` remain. Example: history [1,2,3,4,5,6], max_len 4
     -> [4, 5, 6, mask_id].
     """
-    raise NotImplementedError("Implement build_eval_input (see docstring)")
+    return left_pad_sequence(history[-(max_len - 1):] + [mask_id], max_len)
