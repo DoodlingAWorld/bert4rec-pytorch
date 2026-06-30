@@ -27,6 +27,26 @@ import torch
 import torch.nn as nn
 
 from .config import BERT4RecConfig
+import torch.nn.functional as F
+
+class BERT4RecBlock(nn.Module):
+  def __init__(self, d: int, num_heads: int, dropout: float) :
+    super().__init__()
+    self.attn = nn.MultiheadAttention(d, num_heads, dropout=dropout, batch_first=True)
+    self.ffn = nn.Sequential(
+      nn.Linear(d, 4*d), nn.GELU(), nn.Linear(4*d, d)
+    )
+    self.norm1 = nn.LayerNorm(d)
+    self.norm2 = nn.LayerNorm(d)
+    self.drop1 = nn.Dropout(dropout)
+    self.drop2 = nn.Dropout(dropout)
+
+  def forward(self, x: torch.Tensor, pad_mask: torch.Tensor):
+    a, y = self.attn(x, x, x, key_padding_mask = pad_mask)
+    x = self.norm1(x + self.drop1(a))
+    f = self.ffn(x)
+    x = self.norm2(x + self.drop2(f))
+    return x
 
 
 class BERT4Rec(nn.Module):
@@ -51,13 +71,24 @@ class BERT4Rec(nn.Module):
         self.mask_id = num_items + 1
         self.vocab_size = num_items + 2
         self.cfg = cfg
+        d = cfg.hidden_dim
         # IMPLEMENT: embeddings (item + positional), dropout, L post-LN Transformer blocks
         # (multi-head bidirectional attention + GELU 4x FFN), and the two-layer output head.
-        raise NotImplementedError(
-            "Implement the BERT4Rec encoder (see module docstring)"
-        )
+        self.item_emb = nn.Embedding(num_items + 2, d, padding_idx=0)
+        self.pos_emb = nn.Embedding(cfg.max_len, d)
+        self.dropout = nn.Dropout(cfg.dropout)
+        self.blocks = nn.ModuleList([BERT4RecBlock(d, cfg.num_heads, cfg.dropout) for _ in range(cfg.num_layers)])
+        self.out_linear = nn.Linear(d, d)
+        self.b_O = nn.Parameter(torch.zeros(self.vocab_size))
 
-    def forward(
-        self, seq: torch.Tensor
-    ) -> torch.Tensor:  # [B, L] -> [B, L, num_items + 2]
-        raise NotImplementedError("Implement BERT4Rec.forward (see module docstring)")
+    def forward(self, seq: torch.Tensor) -> torch.Tensor:  # [B, L] -> [B, L, num_items + 2]
+      L = seq.size(1)
+      positions = torch.arange(L, device = seq.device)
+      x = self.dropout(self.item_emb(seq) + self.pos_emb(positions))
+      pad_mask = (seq == 0)
+      for block in self.blocks:
+        x = block(x, pad_mask)
+
+      h = F.gelu(self.out_linear(x))
+      logits = h @ self.item_emb.weight.T + self.b_O
+      return logits
