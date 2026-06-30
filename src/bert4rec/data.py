@@ -30,11 +30,12 @@ def _make_opener(proxy: str | None):
     return urllib.request.build_opener()
 
 
-def download_ml1m(raw_dir: str, proxy: str | None = "http://fwdproxy:8080") -> str:
+def download_ml1m(raw_dir: str, proxy: str | None = None) -> str:
     """Download MovieLens-1M and return the path to ratings.dat.
 
     Tries the canonical GroupLens zip first; on failure falls back to a Hugging Face
-    mirror of ratings.dat (same `user::item::rating::ts` format).
+    mirror of ratings.dat (same `user::item::rating::ts` format). Pass an HTTP proxy URL
+    if your network requires one to reach the internet.
     """
     os.makedirs(raw_dir, exist_ok=True)
     ratings_path = os.path.join(raw_dir, "ml-1m", "ratings.dat")

@@ -55,8 +55,7 @@ python scripts/train.py --fast-dev # smoke test in minutes
 python scripts/train.py            # full ML-1M run
 ```
 
-On a Meta devvm, prefix pip with `--proxy http://fwdproxy:8080`; the dataset downloader uses
-the proxy automatically.
+If your network needs an HTTP proxy to reach the internet, pass it to `download_ml1m(proxy=...)`.
 
 ## Layout
 
